@@ -11,10 +11,11 @@ public class GameManager : MonoBehaviour
 
     [Header("UI 參考")]
     public GameObject settingsPanel; // 設定介面根物件
+    public GameObject storePanel;    // ✨ 新增：商店介面根物件
 
     [Header("提示 UI (尚未開發)")]
-    public GameObject comingSoonPrefab; // ⚠️ 注意：這裡要拖入「Prefab」，不是場景物件
-    public Transform uiRoot; // 拖入 Canvas，讓生成的 UI 掛在 Canvas 下面
+    public GameObject comingSoonPrefab; // 注意：這裡要拖入「Prefab」，不是場景物件
+    public Transform uiRoot;            // 拖入 Canvas，讓生成的 UI 掛在 Canvas 下面
 
     [Header("存檔關鍵字")]
     public string saveKey_TotalClicks = "TotalClicks";
@@ -31,14 +32,23 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
+        // 監聽 ESC 鍵：優先關閉當前打開的 UI
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            if (settingsPanel != null && settingsPanel.activeSelf)
+            // 1. 優先檢查商店介面
+            if (storePanel != null && storePanel.activeSelf)
+            {
+                CloseStoreUI();
+            }
+            // 2. 其次檢查設定介面
+            else if (settingsPanel != null && settingsPanel.activeSelf)
             {
                 CloseSettingsUI();
             }
         }
     }
+
+    // ================= 設定介面邏輯 =================
 
     public void ToggleSettingsUI()
     {
@@ -57,7 +67,27 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // ✨ 修改為：生成飄浮提示
+    // ================= 商店介面邏輯 =================
+
+    public void ToggleStoreUI()
+    {
+        if (storePanel == null) return;
+        bool isActive = !storePanel.activeSelf;
+        storePanel.SetActive(isActive);
+        if (isActive) ClearSelection();
+    }
+
+    public void CloseStoreUI()
+    {
+        if (storePanel != null && storePanel.activeSelf)
+        {
+            storePanel.SetActive(false);
+            ClearSelection();
+        }
+    }
+
+    // ================= 提示 UI 邏輯 =================
+
     public void ShowComingSoonUI()
     {
         if (comingSoonPrefab == null)
@@ -66,26 +96,22 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        // 決定生成位置（例如螢幕正中央，或是按鈕上方）
         Vector3 spawnPos = Vector3.zero;
         if (uiRoot != null)
         {
-            // 如果是在 Canvas 下，我們可以用螢幕中心
-            // 這裡簡單設為 Canvas 的中心
             spawnPos = uiRoot.position;
         }
 
-        // 生成 Prefab
         GameObject instance = Instantiate(comingSoonPrefab, spawnPos, Quaternion.identity);
 
-        // 確保它掛在 Canvas 下面（保持 UI 層級正確）
         if (uiRoot != null)
         {
             instance.transform.SetParent(uiRoot, false);
-            // 重置本地座標，讓它置中
             instance.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
         }
     }
+
+    // ================= 通用輔助方法 =================
 
     private void ClearSelection()
     {
