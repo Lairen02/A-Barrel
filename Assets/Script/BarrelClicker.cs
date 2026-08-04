@@ -36,6 +36,11 @@ public class BarrelClicker : MonoBehaviour, IPointerClickHandler
     [Tooltip("點擊時噴出的木材圖示 Prefab")]
     public GameObject woodParticlePrefab;
 
+    [Header("✨ 自動點擊功能 (商店升級用)")]
+    [Tooltip("每秒自動點擊的次數 (商店購買後會增加此數值)")]
+    public float autoClicksPerSecond = 0f;
+    private float autoClickTimer = 0f;
+
     // 內部變數
     private int currentClicks = 0;
     public int totalClicks = 0;       // 改為 public，方便 GameManager 讀取
@@ -64,48 +69,89 @@ public class BarrelClicker : MonoBehaviour, IPointerClickHandler
         if (repairTextObj != null)
             repairTextObj.SetActive(false);
 
-        // 遊戲開始時，嘗試從 GameManager 讀取存檔 (如果有的話)
+        // 遊戲開始時，嘗試從 GameManager 讀取存檔
         if (GameManager.Instance != null)
         {
             GameManager.Instance.LoadGame();
         }
         else
         {
-            UpdateClickUI(); // 如果 GameManager 還沒初始化，至少更新一次 UI
+            UpdateClickUI();
+        }
+    }
+
+    void Update()
+    {
+        // ✨ 自動點擊邏輯 (只在非修復狀態下運作)
+        if (autoClicksPerSecond > 0f && !isRepairing)
+        {
+            autoClickTimer += Time.deltaTime * autoClicksPerSecond;
+
+            if (autoClickTimer >= 1f)
+            {
+                int clicksToAdd = Mathf.FloorToInt(autoClickTimer);
+                autoClickTimer -= clicksToAdd;
+
+                // 自動點擊也觸發 HandleClick，但傳入 false (不播音效)
+                for (int i = 0; i < clicksToAdd; i++)
+                {
+                    HandleClick(false);
+                }
+            }
         }
     }
 
     // 方式 A: IPointerClickHandler
     public void OnPointerClick(PointerEventData eventData)
     {
-        HandleClick();
+        if (IsUIPanelOpen()) return; // 🛡️ 如果 UI 打開，直接忽略點擊
+        HandleClick(true);
     }
 
     // 方式 B: OnMouseDown (雙重保險)
     void OnMouseDown()
     {
-        //  新增：如果滑鼠點擊的位置有 UI 物件（例如設定選單），就不處理木桶點擊
+        if (IsUIPanelOpen()) return; // 🛡️ 如果 UI 打開，直接忽略點擊
+
+        // 如果滑鼠點擊的位置有 UI 物件，就不處理木桶點擊
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
-            return; // 直接結束，不執行下面的 HandleClick()
+            return;
         }
 
-        HandleClick();
+        HandleClick(true);
     }
 
-    // 統一的點擊邏輯
-    void HandleClick()
+    // 🛡️ 檢查是否有 UI 面板開啟，防止穿透點擊
+    bool IsUIPanelOpen()
+    {
+        if (GameManager.Instance != null)
+        {
+            if (GameManager.Instance.settingsPanel != null && GameManager.Instance.settingsPanel.activeSelf)
+                return true;
+            if (GameManager.Instance.storePanel != null && GameManager.Instance.storePanel.activeSelf)
+                return true;
+        }
+        return false;
+    }
+
+    // 統一的點擊邏輯 (isManual 區分是玩家手動點擊還是自動點擊)
+    void HandleClick(bool isManual)
     {
         if (isRepairing) return;
-
-        if (clickSound != null)
-            clickSound.Play();
 
         currentClicks++;
         totalClicks++;
 
-        // ✨ 新增：生成噴出的木材特效
+        // ✨ 修改處：無論手動還是自動，都生成木材特效和播放動畫！
         SpawnFloatingWood();
+        PlayClickAnimation();
+
+        // ✨ 修改處：只有「手動點擊」才播放音效，避免自動點擊時音效重疊爆炸
+        if (isManual && clickSound != null)
+        {
+            clickSound.Play();
+        }
 
         // 檢查是否達到第三階段（觸發修復的門檻）
         if (damageThresholds.Length >= 3 && currentClicks >= damageThresholds[2])
@@ -119,7 +165,13 @@ public class BarrelClicker : MonoBehaviour, IPointerClickHandler
 
         UpdateBarrelSprite();
         UpdateClickUI();
-        PlayClickAnimation();
+    }
+
+    // ✨ 提供給商店腳本呼叫的方法：升級自動點擊
+    public void UpgradeAutoClicker(float amount)
+    {
+        autoClicksPerSecond += amount;
+        Debug.Log($"🤖 自動點擊升級！現在每秒自動點擊 {autoClicksPerSecond} 次");
     }
 
     // ✨ 新增：生成漂浮木材的方法
@@ -127,7 +179,7 @@ public class BarrelClicker : MonoBehaviour, IPointerClickHandler
     {
         if (woodParticlePrefab != null)
         {
-            // 在木桶中心位置生成，並帶點微小的隨機偏移，讓連續點擊時木材不會完全重疊
+            // 在木桶中心位置生成，並帶點微小的隨機偏移
             Vector3 spawnPos = transform.position + new Vector3(Random.Range(-0.3f, 0.3f), Random.Range(-0.3f, 0.3f), 0f);
             Instantiate(woodParticlePrefab, spawnPos, Quaternion.identity);
         }
@@ -193,7 +245,7 @@ public class BarrelClicker : MonoBehaviour, IPointerClickHandler
         }
     }
 
-    // ⚠️ 修正處：加上 public，讓 GameManager 可以存取
+    // 讓 GameManager 可以存取
     public void UpdateClickUI()
     {
         if (clickCountText != null)
