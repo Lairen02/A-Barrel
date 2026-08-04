@@ -29,7 +29,7 @@ public class ShopItemController : MonoBehaviour
         // ✨ 自動將 Inspector 設定的價格顯示在 UI 上
         if (priceText != null)
         {
-            priceText.text = $"🪵 {price}";
+            priceText.text = $"{price}";
         }
 
         if (buyButton != null)
