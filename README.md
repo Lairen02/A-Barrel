@@ -1,5 +1,7 @@
 # 木桶點擊小遊戲
-// 預計塞張預覽圖片
+
+<img width="123.5" height="260.5" alt="螢幕擷取畫面 2026-08-06 072745" src="https://github.com/user-attachments/assets/8dc72bca-0895-4939-9fa0-15fcb8a8ca40" />
+
 
 ## 支援版本
 - 目前僅支援 Android 移動端 T^T
